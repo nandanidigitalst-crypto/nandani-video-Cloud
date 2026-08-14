@@ -178,6 +178,12 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-app.listen(PORT, () => {
-  console.log(`Nandani Wedding Cloud running on port ${PORT}`);
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
 });
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+app.listen(PORT, () => console.log(`Nandani Wedding Cloud running on port ${PORT}`));
