@@ -168,5 +168,16 @@ app.post("/api/upload/:uploadId/finish", auth, (req, res) => {
 
 app.get("/api/admin/stats", auth, adminOnly, (req, res) => res.json({ customers: db.users.filter(u => u.role === "customer" && u.active !== false).length, weddings: db.weddings.length, files: db.files.length, storageBytes: db.files.reduce((n, f) => n + Number(f.size || 0), 0) }));
 
-app.get("*", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
-app.listen(PORT, () => console.log(`Nandani Wedding Cloud running on port ${PORT}`));
+// Admin URL भी main login page पर जाएगा
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+// बाकी सभी frontend routes भी index.html पर जाएंगे
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+app.listen(PORT, () => {
+  console.log(`Nandani Wedding Cloud running on port ${PORT}`);
+});
