@@ -1,54 +1,43 @@
-# Nandani Wedding Gallery — Railway Ready
+# Nandani Wedding Cloud
 
-Wedding photos और long videos के लिए responsive gallery website.
+Secure wedding photo/video cloud with separate **Admin** and **Customer** accounts.
 
-## Features
-- Wedding name + album
-- Photo upload
-- Long video upload
-- 8 MB chunked uploads
-- Upload progress
-- Browser video playback
-- Download
-- Delete
-- Mobile responsive design
-- Application-level 20 GB single-file limit
-- Persistent storage support via `STORAGE_ROOT`
+## Included
+- Admin login with secure password hashing (Node `scrypt`)
+- Customer creation/deactivation from Admin Dashboard
+- Customer username/password login
+- Admin can create and assign wedding albums to customers
+- Customers can only see their own albums
+- Photo and long-video upload with 8 MB chunks
+- 20 GB application-level single-file limit
+- Online playback, download and delete
+- Persistent filesystem storage via `STORAGE_ROOT`
+- HTTP-only session cookie
 
-## Railway deployment
+## Admin credentials
+Do **not** put the admin password in GitHub. Set these environment variables on Railway/your server:
 
-### 1. GitHub
-ZIP को extract करके पूरा project एक GitHub repository में upload करें.
+`ADMIN_USERNAME=your-admin-username`
+`ADMIN_PASSWORD=your-strong-password`
 
-### 2. Railway
-Railway में **New Project → Deploy from GitHub Repo** चुनें और repository select करें.
-
-### 3. Domain
-Deployment के बाद **Settings → Networking → Generate Domain** करें.
-
-### 4. Persistent Volume — जरूरी
-Railway में service खोलें:
-**Volumes → Add Volume**
-
-Mount path रखें:
-`/app/storage`
-
-Environment variable जोड़ें:
-`STORAGE_ROOT=/app/storage`
-
-इससे uploaded photos/videos और album database persistent storage में रहेंगे.
-
-### 5. बड़े वीडियो
-20 GB application limit है, लेकिन वास्तविक सीमा Volume size, hosting plan, bandwidth और proxy limits पर निर्भर करेगी.
-यदि 20 GB तक files रखनी हैं तो Volume को पर्याप्त बड़ा रखें.
-
-## Important
-यह version local filesystem/Volume पर files रखता है. बहुत बड़ी wedding libraries के लिए production में S3-compatible object storage (जैसे Cloudflare R2, AWS S3 आदि) बेहतर और scalable विकल्प है.
+On first start, the application creates the admin account if it does not already exist.
 
 ## Local run
 Node.js 18+:
 1. `npm install`
-2. `npm start`
-3. `http://localhost:3000`
+2. Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` in your shell/environment.
+3. `npm start`
+4. Open `http://localhost:3000`
 
-Default local storage: `./storage/`
+Default local storage: `./storage/`.
+
+## Railway
+Deploy from GitHub, then add environment variables:
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+- `STORAGE_ROOT=/app/storage`
+
+Add a Railway Volume mounted at `/app/storage` so customer accounts, album metadata and uploaded files survive redeploys. For very large libraries, S3-compatible object storage is recommended.
+
+## Security notes
+Use HTTPS in production. The application stores password hashes, not plaintext passwords. Customer media endpoints require an authenticated session and check album ownership.
