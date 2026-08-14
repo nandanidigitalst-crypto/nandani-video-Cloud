@@ -1,101 +1,30 @@
 let currentWedding = null;
 const $ = id => document.getElementById(id);
-const fmt = bytes => {
-  if (!bytes) return "0 B";
-  const u=["B","KB","MB","GB","TB"], i=Math.floor(Math.log(bytes)/Math.log(1024));
-  return `${(bytes/Math.pow(1024,i)).toFixed(i?1:0)} ${u[i]}`;
-};
+const fmt = bytes => { if (!bytes) return "0 B"; const u=["B","KB","MB","GB","TB"], i=Math.floor(Math.log(bytes)/Math.log(1024)); return `${(bytes/Math.pow(1024,i)).toFixed(i?1:0)} ${u[i]}`; };
+const esc = s => String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+async function api(url, options={}) { const r=await fetch(url, options); const data=await r.json().catch(()=>({})); if(!r.ok) throw new Error(data.error||"Request failed"); return data; }
 
-async function api(url, options={}) {
-  const r = await fetch(url, options);
-  const data = await r.json().catch(()=>({}));
-  if (!r.ok) throw new Error(data.error || "Request failed");
-  return data;
-}
+async function boot(){ try { const me=await api("/api/auth/me"); showApp(me); } catch { showLogin(); } }
+function showLogin(){ $("loginView").classList.remove("hidden"); $("appView").classList.add("hidden"); }
+function showApp(me){ $("loginView").classList.add("hidden"); $("appView").classList.remove("hidden"); $("userName").textContent=`${me.name} (${me.role})`; $("adminView").classList.toggle("hidden",me.role!=="admin"); loadWeddings(); if(me.role==="admin") loadCustomers(); }
+async function login(){ const username=$("loginUsername").value.trim(), password=$("loginPassword").value; $("loginError").textContent=""; try { const me=await api("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})}); $("loginPassword").value=""; showApp(me); } catch(e){ $("loginError").textContent=e.message; } }
+async function logout(){ await api("/api/auth/logout",{method:"POST"}).catch(()=>{}); showLogin(); }
+function escapeHtml(s){return esc(s)}
 
-async function loadWeddings() {
-  const list = await api("/api/weddings");
-  $("weddings").innerHTML = list.length ? list.map(w => `
-    <div class="wedding" onclick="openGallery('${w.id}')">
-      <div class="icon">💍</div>
-      <h3>${escapeHtml(w.name)}</h3>
-      <div class="muted">${w.files?.length || 0} files</div>
-    </div>`).join("") : `<div class="muted">अभी कोई album नहीं है. ऊपर “नया Wedding” दबाएँ.</div>`;
-}
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
+async function loadCustomers(){ try { const [customers,stats]=await Promise.all([api("/api/customers"),api("/api/admin/stats")]); $("stats").innerHTML=`<div><b>${stats.customers}</b><span>Customers</span></div><div><b>${stats.weddings}</b><span>Albums</span></div><div><b>${stats.files}</b><span>Files</span></div><div><b>${fmt(stats.storageBytes)}</b><span>Storage</span></div>`; $("customers").innerHTML=customers.length?customers.map(c=>`<div class="customer-row"><div><b>${esc(c.name)}</b><div class="muted">@${esc(c.username)} ${c.mobile?`· ${esc(c.mobile)}`:""}</div></div><button class="danger" onclick="deleteCustomer('${c.id}')">Deactivate</button></div>`).join(""):"No customers yet."; } catch(e){ alert(e.message); } }
+async function addCustomer(){ const name=$("customerName").value.trim(), username=$("customerUsername").value.trim(), password=$("customerPassword").value, mobile=$("customerMobile").value.trim(); if(!name||!username||!password)return alert("Name, username and password are required."); try { await api("/api/customers",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,username,password,mobile})}); ["customerName","customerUsername","customerPassword","customerMobile"].forEach(id=>$(id).value=""); alert("Customer created successfully"); loadCustomers(); } catch(e){alert(e.message)} }
+async function deleteCustomer(id){if(!confirm("Customer को deactivate करें?"))return; try{await api(`/api/customers/${id}`,{method:"DELETE"});loadCustomers();loadWeddings()}catch(e){alert(e.message)}}
 
-function openModal(){ $("modal").classList.remove("hidden"); $("weddingName").focus(); }
-function closeModal(){ $("modal").classList.add("hidden"); $("weddingName").value=""; }
-async function createWedding(){
-  const name=$("weddingName").value.trim();
-  if(!name) return alert("Wedding name लिखें.");
-  try{await api("/api/weddings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name})});closeModal();loadWeddings();}
-  catch(e){alert(e.message)}
-}
-function showHelp(){$("help").classList.remove("hidden")}
-function hideHelp(){$("help").classList.add("hidden")}
+async function loadWeddings(){ try { const list=await api("/api/weddings"); $("weddings").innerHTML=list.length?list.map(w=>`<div class="wedding" onclick="openGallery('${w.id}')"><div class="icon">💍</div><h3>${esc(w.name)}</h3><div class="muted">${w.files?.length||0} files</div></div>`).join(""):"<div class=muted>अभी कोई album नहीं है.</div>"; if($("customerSelect")) { const customers=await api("/api/customers").catch(()=>[]); $("customerSelect").innerHTML=customers.map(c=>`<option value="${c.id}">${esc(c.name)} (@${esc(c.username)})</option>`).join(""); } } catch(e){ if(e.message!=="Login required") alert(e.message); } }
+function openModal(){$("modal").classList.remove("hidden");$("weddingName").focus()}
+function closeModal(){$("modal").classList.add("hidden");$("weddingName").value=""}
+async function createWedding(){const name=$("weddingName").value.trim(), customerId=$("customerSelect")?.value; if(!name)return alert("Wedding name लिखें."); try{await api("/api/weddings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,customerId})});closeModal();loadWeddings();}catch(e){alert(e.message)}}
 
-async function openGallery(id){
-  const list=await api("/api/weddings");
-  currentWedding=list.find(w=>w.id===id);
-  if(!currentWedding)return;
-  $("galleryTitle").textContent=currentWedding.name;
-  $("galleryPanel").classList.remove("hidden");
-  document.querySelector("main").scrollIntoView({behavior:"smooth"});
-  loadFiles();
-}
+async function openGallery(id){const list=await api("/api/weddings");currentWedding=list.find(w=>w.id===id);if(!currentWedding)return;$("galleryTitle").textContent=currentWedding.name;$("galleryPanel").classList.remove("hidden");loadFiles()}
 function closeGallery(){$("galleryPanel").classList.add("hidden");currentWedding=null}
-async function loadFiles(){
-  if(!currentWedding)return;
-  const files=await api(`/api/weddings/${currentWedding.id}/files`);
-  $("files").innerHTML=files.length?files.map(f=>{
-    const isVideo=f.mime.startsWith("video/");
-    return `<article class="media-card">
-      ${isVideo?`<video controls preload="metadata" src="${f.url}"></video>`:`<img loading="lazy" src="${f.url}" alt="">`}
-      <div class="media-info">
-        <div class="media-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</div>
-        <div class="muted">${fmt(f.size)}</div>
-        <div class="actions"><a href="${f.url}" download>⬇️ Download</a><button onclick="deleteFile('${f.id}')">🗑️ Delete</button></div>
-      </div>
-    </article>`
-  }).join(""):`<div class="muted">इस album में अभी कोई photo/video नहीं है.</div>`;
-}
-$("fileInput").addEventListener("change", e => {
-  [...e.target.files].forEach(uploadFile);
-  e.target.value="";
-});
-
-async function uploadFile(file){
-  const max=20*1024*1024*1024;
-  if(file.size>max){alert(`${file.name} 20 GB से बड़ा है.`);return}
-  const row=document.createElement("div");
-  row.className="upload-row";
-  row.innerHTML=`<b>${escapeHtml(file.name)}</b><span class="muted"> — ${fmt(file.size)}</span><div class="bar"><i></i></div><div class="muted status">Starting...</div>`;
-  $("uploads").prepend(row);
-  const bar=row.querySelector("i"), status=row.querySelector(".status");
-  try{
-    const start=await api("/api/upload/start",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({weddingId:currentWedding.id,fileName:file.name,size:file.size,mime:file.type})});
-    const chunkSize=start.chunkBytes;
-    let offset=0;
-    while(offset<file.size){
-      const blob=file.slice(offset,Math.min(offset+chunkSize,file.size));
-      const fd=new FormData();fd.append("chunk",blob,"chunk");
-      const r=await fetch(`/api/upload/${start.uploadId}/chunk`,{method:"POST",headers:{"X-Chunk-Start":String(offset)},body:fd});
-      const d=await r.json();if(!r.ok)throw new Error(d.error||"Chunk upload failed");
-      offset=d.received;
-      const pct=Math.round(offset/file.size*100);
-      bar.style.width=pct+"%";status.textContent=`Uploading… ${pct}% (${fmt(offset)} / ${fmt(file.size)})`;
-    }
-    await api(`/api/upload/${start.uploadId}/finish`,{method:"POST"});
-    status.textContent="✅ Upload complete";
-    loadFiles();loadWeddings();
-  }catch(e){status.textContent="❌ "+e.message}
-}
-
-async function deleteFile(id){
-  if(!confirm("यह file delete करें?"))return;
-  try{await api(`/api/weddings/${currentWedding.id}/files/${id}`,{method:"DELETE"});loadFiles();loadWeddings();}
-  catch(e){alert(e.message)}
-}
-loadWeddings();
+async function loadFiles(){if(!currentWedding)return;const files=await api(`/api/weddings/${currentWedding.id}/files`);$("files").innerHTML=files.length?files.map(f=>{const video=f.mime.startsWith("video/");return `<article class="media-card">${video?`<video controls preload="metadata" src="${f.url}"></video>`:`<img loading="lazy" src="${f.url}" alt="">`}<div class="media-info"><div class="media-name">${esc(f.name)}</div><div class="muted">${fmt(f.size)}</div><div class="actions"><a href="${f.url}" download>⬇️ Download</a><button onclick="deleteFile('${f.id}')">🗑️ Delete</button></div></div></article>`}).join(""):"<div class=muted>इस album में अभी कोई photo/video नहीं है.</div>"}
+$("fileInput").addEventListener("change",e=>{[...e.target.files].forEach(uploadFile);e.target.value=""});
+async function uploadFile(file){const max=20*1024*1024*1024;if(file.size>max)return alert(`${file.name} 20 GB से बड़ा है.`);const row=document.createElement("div");row.className="upload-row";row.innerHTML=`<b>${esc(file.name)}</b><span class=muted> — ${fmt(file.size)}</span><div class=bar><i></i></div><div class="muted status">Starting...</div>`;$("uploads").prepend(row);const bar=row.querySelector("i"),status=row.querySelector(".status");try{const start=await api("/api/upload/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({weddingId:currentWedding.id,fileName:file.name,size:file.size,mime:file.type})});let offset=0;while(offset<file.size){const blob=file.slice(offset,Math.min(offset+start.chunkBytes,file.size));const fd=new FormData();fd.append("chunk",blob,"chunk");const r=await fetch(`/api/upload/${start.uploadId}/chunk`,{method:"POST",headers:{"X-Chunk-Start":String(offset)},body:fd});const d=await r.json();if(!r.ok)throw new Error(d.error||"Chunk upload failed");offset=d.received;const pct=Math.round(offset/file.size*100);bar.style.width=pct+"%";status.textContent=`Uploading… ${pct}% (${fmt(offset)} / ${fmt(file.size)})`;}await api(`/api/upload/${start.uploadId}/finish`,{method:"POST"});status.textContent="✅ Upload complete";loadFiles();loadWeddings()}catch(e){status.textContent="❌ "+e.message}}
+async function deleteFile(id){if(!confirm("यह file delete करें?"))return;try{await api(`/api/weddings/${currentWedding.id}/files/${id}`,{method:"DELETE"});loadFiles();loadWeddings()}catch(e){alert(e.message)}}
+function showHelp(){$("help").classList.remove("hidden")} function hideHelp(){$("help").classList.add("hidden")}
+boot();
