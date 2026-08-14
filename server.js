@@ -178,12 +178,25 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
+app.get("/api/admin/stats", auth, adminOnly, (req, res) => {
+  res.json({
+    customers: db.users.filter(u => u.role === "customer" && u.active !== false).length,
+    weddings: db.weddings.length,
+    files: db.files.length,
+    storageBytes: db.files.reduce((n, f) => n + Number(f.size || 0), 0)
+  });
+});
+
+// Admin URL
 app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
+// Frontend routes
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-app.listen(PORT, () => console.log(`Nandani Wedding Cloud running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Nandani Wedding Cloud running on port ${PORT}`);
+});
