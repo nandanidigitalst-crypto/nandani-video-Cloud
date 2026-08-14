@@ -4,7 +4,7 @@
 <body>
 <header class="topbar"><div><div class="brand">💍 Nandani Wedding Cloud</div><div class="tagline">Wedding photos और long videos — secure customer albums</div></div><div class="header-actions"><span id="userName"></span><button class="ghost" onclick="showHelp()">Help</button><button class="ghost" onclick="logout()">Logout</button></div></header>
 
-<section id="loginView" class="login-wrap"><div class="login-card"><div class="brand big">💍 Nandani</div><h1>Secure Login</h1><p>Admin या Customer account से login करें.</p><input id="loginUsername" placeholder="Username" autocomplete="username"><input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"><button class="primary full" onclick="login()">Login</button><div id="loginError" class="error"></div></div></section>
+<section id="loginView" class="login-wrap"><div class="login-card"><div class="brand big">💍 Nandani</div><h1>Secure Login</h1><p>Admin या Customer account से login करें.</p><input id="loginUsername" placeholder="User ID / Username" autocomplete="username"><input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"><button class="primary full" onclick="login()">Login</button><div id="loginError" class="error"></div></div></section>
 
 <main id="appView" class="hidden">
 <section id="adminView" class="panel hidden"><div class="panel-title"><div><h2>Admin Dashboard</h2><p class="muted">Customers और wedding albums manage करें.</p></div></div><div id="stats" class="stats"></div>
